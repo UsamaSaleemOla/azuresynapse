@@ -1,0 +1,17 @@
+{
+	"name": "Exec View",
+	"properties": {
+		"content": {
+			"query": "USE warburg;\nGO\n\nEXEC createDeltaViews 'warburgdeltafolder', 'organizations_delete'",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "warburg",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

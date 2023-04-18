@@ -1,0 +1,60 @@
+{
+	"name": "warburgStgToMain",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "warburgStgTable",
+						"type": "DatasetReference"
+					},
+					"name": "stgTable"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "warburgMainTable",
+						"type": "DatasetReference"
+					},
+					"name": "mainTable"
+				}
+			],
+			"transformations": [
+				{
+					"name": "AlterRow1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     LoadType as string",
+				"}",
+				"source(output(",
+				"          id as short,",
+				"          name as string,",
+				"          surname as string,",
+				"          ModifyDate as timestamp,",
+				"          Operation as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> stgTable",
+				"stgTable alterRow(upsertIf(Operation=='Insert'),",
+				"     deleteIf(Operation=='Delete')) ~> AlterRow1",
+				"AlterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:true,",
+				"     insertable:false,",
+				"     updateable:false,",
+				"     upsertable:true,",
+				"     keys:['id'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> mainTable"
+			]
+		}
+	}
+}

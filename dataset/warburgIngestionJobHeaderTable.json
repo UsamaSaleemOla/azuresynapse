@@ -1,0 +1,53 @@
+{
+	"name": "warburgIngestionJobHeaderTable",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "ID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "TableName",
+				"type": "nvarchar"
+			},
+			{
+				"name": "IsEnable",
+				"type": "nvarchar"
+			},
+			{
+				"name": "MainContainer",
+				"type": "nvarchar"
+			},
+			{
+				"name": "StorageFileLocation",
+				"type": "nvarchar"
+			},
+			{
+				"name": "LastProcessDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "Loadtype",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Frequency",
+				"type": "nvarchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "IngestionJobHeader"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

@@ -1,0 +1,17 @@
+{
+	"name": "Create Delta Views",
+	"properties": {
+		"content": {
+			"query": "USE warburg;\nGO\n\nCREATE OR ALTER PROC createDeltaViews @MainContainer NVARCHAR(50), @StorageFileLocation NVARCHAR(50)\nAS\nBEGIN\n\nDECLARE @statement VARCHAR(MAX)\nSET @statement = N'CREATE OR ALTER VIEW ' + @StorageFileLocation + ' AS\n    SELECT\n        *\n    FROM\n        OPENROWSET(\n            BULK ''https://warburgdeltatables.dfs.core.windows.net/' +@MainContainer+ '/' +@StorageFileLocation+ '/'',\n            FORMAT = ''DELTA''\n        ) AS [RESULT]\n'\nEXEC (@statement)\nEND\nGO\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "warburg",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

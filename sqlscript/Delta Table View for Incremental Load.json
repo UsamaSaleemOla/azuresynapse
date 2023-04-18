@@ -1,0 +1,17 @@
+{
+	"name": "Delta Table View for Incremental Load",
+	"properties": {
+		"content": {
+			"query": "USE warburg;\nGO\n\nCREATE OR ALTER PROC deltaTableViewForIncrementalLoad @MainContainer NVARCHAR(50), @StorageFileLocation NVARCHAR(50), @LastProcessDate NVARCHAR(50)\nAS\nBEGIN\n\nDECLARE @statement VARCHAR(MAX)\nSET @statement = N'CREATE OR ALTER VIEW ' + @StorageFileLocation + ' AS\n    SELECT\n        *, ''Insert'' as Operation\n    FROM\n        OPENROWSET(\n            BULK ''https://warburgdeltatables.dfs.core.windows.net/' +@MainContainer+ '/' +@StorageFileLocation+ '/'',\n            FORMAT = ''DELTA''\n        ) AS [RESULT]\n    WHERE\n        ModifyDate >= CONVERT(datetime2,'''+@LastProcessDate+''', 127)\n'\nEXEC (@statement)\nEND\nGO\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "warburg",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

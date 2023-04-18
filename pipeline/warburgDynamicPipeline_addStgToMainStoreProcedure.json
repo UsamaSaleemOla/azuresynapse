@@ -1,0 +1,786 @@
+{
+	"name": "warburgDynamicPipeline_addStgToMainStoreProcedure",
+	"properties": {
+		"activities": [
+			{
+				"name": "Ingestion Job Header",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "select * from dbo.IngestionJobHeader where IsEnable='Y'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "warburgIngestionJobHeaderTable",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Ingestion Job Header Values",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Ingestion Job Header",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Ingestion Job Header').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Insert Values into Integration job detail",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateIngestionJobDetailANDHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": null,
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": {
+											"value": "@item().LoadType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "InsertValues",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Data Lake to Stg for Insert Operation",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Insert Values into Integration job detail",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[selectValuesFromView]",
+									"storedProcedureParameters": {
+										"LastProcessDate": {
+											"type": "String",
+											"value": {
+												"value": "@item().LastProcessDate",
+												"type": "Expression"
+											}
+										},
+										"MainContainer": {
+											"type": "String",
+											"value": {
+												"value": "@item().MainContainer",
+												"type": "Expression"
+											}
+										},
+										"Operation": {
+											"type": "String",
+											"value": {
+												"value": "Insert",
+												"type": "Expression"
+											}
+										},
+										"StorageFileLocation": {
+											"type": "String",
+											"value": {
+												"value": "@item().StorageFileLocation",
+												"type": "Expression"
+											}
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"preCopyScript": {
+										"value": "drop table if exists stg.@{item().TableName}",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate",
+									"disableMetricsCollection": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "warburgDeltaTableView",
+									"type": "DatasetReference",
+									"parameters": {
+										"deltaTableViewName": {
+											"value": "@item().StorageFileLocation",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "warburgStgTable",
+									"type": "DatasetReference",
+									"parameters": {
+										"StgTableName": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Data Lake to Stg for Delete Operation",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Data Lake to Stg for Insert Operation",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[selectValuesFromView]",
+									"storedProcedureParameters": {
+										"LastProcessDate": {
+											"type": "String",
+											"value": {
+												"value": "@item().LastProcessDate",
+												"type": "Expression"
+											}
+										},
+										"MainContainer": {
+											"type": "String",
+											"value": {
+												"value": "@item().MainContainer",
+												"type": "Expression"
+											}
+										},
+										"Operation": {
+											"type": "String",
+											"value": {
+												"value": "Delete",
+												"type": "Expression"
+											}
+										},
+										"StorageFileLocation": {
+											"type": "String",
+											"value": {
+												"value": "@{item().StorageFileLocation}_delete",
+												"type": "Expression"
+											}
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "warburgDeltaTableView",
+									"type": "DatasetReference",
+									"parameters": {
+										"deltaTableViewName": {
+											"value": "@{item().StorageFileLocation}_delete",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "warburgStgTable",
+									"type": "DatasetReference",
+									"parameters": {
+										"StgTableName": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Update IJD for data lake to stg",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Data Lake to Stg for Delete Operation",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateIngestionJobDetailANDHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": null,
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": null,
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "UpdateOnDataLakeToStgSuccess",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Error Update for data lake to stg delete operation",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Data Lake to Stg for Delete Operation",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateIngestionJobDetailANDHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": {
+											"value": "@activity('Data Lake to Stg for Delete Operation').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": {
+											"value": "@formatDateTime(utcnow(), 'yyyy-MM-dd HH:mm:ss')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": null,
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "UpdateOnDataLakeToStgError",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Error Update for data lake to stg insert operation",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Data Lake to Stg for Insert Operation",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[updateIngestionJobHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": {
+											"value": "@activity('Data Lake to Stg for Insert Operation').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": {
+											"value": "@formatDateTime(utcnow(), 'yyyy-MM-dd HH:mm:ss')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": null,
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "UpdateOnDataLakeToStgError",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Stg To Main",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Update IJD for data lake to stg",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[stgToMain]",
+								"storedProcedureParameters": {
+									"LoadType": {
+										"value": {
+											"value": "@item().LoadType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Update Integration Job Detail and Header",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Stg To Main",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateIngestionJobDetailANDHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": null,
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": {
+											"value": "@formatDateTime(utcnow(), 'yyyy-MM-dd HH:mm:ss')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": null,
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "UpdateOnStgToMainSuccess",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Error Update for stg to main",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Stg To Main",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateIngestionJobDetailANDHeader]",
+								"storedProcedureParameters": {
+									"BatchID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"DataLakeToStagingError": {
+										"value": null,
+										"type": "String"
+									},
+									"DataLakeToStagingStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"EndDatetime": {
+										"value": {
+											"value": "@formatDateTime(utcnow(), 'yyyy-MM-dd HH:mm:ss')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"loadType": {
+										"value": null,
+										"type": "String"
+									},
+									"Operation": {
+										"value": {
+											"value": "UpdateOnStgToMainError",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StagingToMainError": {
+										"value": null,
+										"type": "String"
+									},
+									"StagingToMainStatus": {
+										"value": null,
+										"type": "String"
+									},
+									"StartDatetime": {
+										"value": null,
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().TableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2023-04-14T04:34:41Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

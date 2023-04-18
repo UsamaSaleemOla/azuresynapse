@@ -1,0 +1,25 @@
+{
+	"name": "warburgDeltaTableView",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SynapseSQLDataBase",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"deltaTableViewName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": {
+				"value": "@dataset().deltaTableViewName",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

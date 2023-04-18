@@ -1,0 +1,17 @@
+{
+	"name": "select values from view",
+	"properties": {
+		"content": {
+			"query": "USE warburg;\nGO\n\nCREATE OR ALTER PROC selectValuesFromView @MainContainer NVARCHAR(50), @StorageFileLocation NVARCHAR(50), @LastProcessDate NVARCHAR(50), @Operation NVARCHAR(50), @LoadType NVARCHAR(50)\nAS\n\nIf @LoadType = 'Incremental'\nBEGIN\nDECLARE @Incremental VARCHAR(MAX)= '\n    SELECT\n        *, '''+@Operation+''' as Operation\n    FROM\n        [dbo].['+@StorageFileLocation+']\n    WHERE\n        ModifyDate >= CONVERT(datetime2,'''+@LastProcessDate+''', 127)\n'\nEXEC (@Incremental)\nEND\n\nELSE If @LoadType = 'Full'\nBEGIN\n\nDECLARE @Full VARCHAR(MAX)= '\n    SELECT\n        *, '''+@Operation+''' as Operation\n    FROM\n        [dbo].['+@StorageFileLocation+']\n'\nEXEC (@Full)\nEND\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "warburg",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
